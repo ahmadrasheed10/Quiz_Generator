@@ -1,3 +1,12 @@
+# 🧠 AI-Powered Quiz Generator & Classifier
+
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Framework](https://img.shields.io/badge/Framework-PyTorch%20%7C%20HuggingFace-orange)
+![Model](https://img.shields.io/badge/Model-T5%20Transformer-green)
+
+A state-of-the-art system that uses **Generative AI** to create university-level quiz questions and **Machine Learning** to classify them. At its core, this project leverages **Google's T5 (Text-to-Text Transfer Transformer)**, fine-tuned to understand granular educational contexts like Subject, Topic, and Difficulty.
+
+---
 
 ## 🚀 Key Features
 
