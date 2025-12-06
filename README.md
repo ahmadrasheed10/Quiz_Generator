@@ -25,7 +25,12 @@ A state-of-the-art system that uses **Generative AI** to create university-level
     *   **Deep Learning:** LSTM & CNN (using Word2Vec embeddings).
 *   **Performance Metrics:** Real-time tracking of Accuracy, F1-Score, and Confusion Matrices.
 
-### 3. 💻 Modern UI
+### 3. 📚 RAG Comparison (New!)
+*   **Side-by-side Analysis:** Compare results from the Base T5 Model vs. RAG (Retrieval-Augmented Generation).
+*   **Contextual Grounding:** See how retrieving relevant training data improves question relevance and diversity.
+*   **Visual Similarity Search:** View the exact source chunks retrieved for each generation.
+
+### 4. 💻 Modern UI
 *   **Streamlit Dashboard:** A premium, dark-mode web interface.
 *   **PDF Export:** Generate and download fully formatted quiz papers instantly.
 *   **Interactive Design:** Real-time feedback and smooth animations.
@@ -82,6 +87,12 @@ Analyze how well the models can categorize existing questions.
 streamlit run classification_app.py
 ```
 
+### 3. Run RAG Comparison App
+Compare the Base Model against the Retrieval-Augmented pipeline.
+```bash
+streamlit run rag_comparison_app.py
+```
+
 ---
 
 ## 🧠 Model Training
@@ -114,6 +125,7 @@ python train_classification.py --target_column subject
 .
 ├── app.py                      # Main Quiz Generator UI (Streamlit)
 ├── classification_app.py       # Classification Dashboard UI
+├── rag_comparison_app.py       # RAG Comparison UI
 ├── train.py                    # T5 Model Training Script
 ├── inference.py                # T5 Inference Logic (Generation)
 ├── config.py                   # Central Configuration
