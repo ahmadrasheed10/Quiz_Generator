@@ -74,41 +74,50 @@ if 'results_dir' not in st.session_state:
 if 'target_column' not in st.session_state:
     st.session_state.target_column = "subject"
 
-def load_metrics(filepath):
-    """Load metrics from JSON file"""
-    try:
-        with open(filepath, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading {filepath}: {e}")
-        return None
-
-def load_image(filepath):
-    """Load image if exists"""
-    if os.path.exists(filepath):
-        return Image.open(filepath)
-    return None
-
 def get_model_files(results_dir, model_name, set_name="test"):
     """Get file paths for a model"""
     model_name_safe = model_name.replace(' ', '_')
-    base_path = Path(results_dir)
     
+    # Handle new folder structure: results_dir/target_column/files
+    target_column = st.session_state.get('target_column', 'subject')
+    
+    # Check if we have the nested structure or flat structure
+    base_path = Path(results_dir)
+    target_path = base_path / target_column
+    
+    # If the target specific folder exists, use it. Otherwise fall back to base_path (backward compatibility)
+    if target_path.exists():
+        search_path = target_path
+    else:
+        search_path = base_path
+
     files = {
-        'metrics': base_path / f"{model_name_safe}_{set_name}_metrics.json",
-        'confusion_matrix': base_path / f"{model_name_safe}_{set_name}_confusion_matrix.png",
-        'training_history': base_path / f"{model_name_safe}_training_history.png"
+        'metrics': search_path / f"{model_name_safe}_{set_name}_metrics.json",
+        'confusion_matrix': search_path / f"{model_name_safe}_{set_name}_confusion_matrix.png",
+        'training_history': search_path / f"{model_name_safe}_training_history.png"
     }
     
     return files
+
+def load_metrics(filepath):
+    """Load metrics from JSON file"""
+    try:
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        return None
+    except Exception as e:
+        # st.error(f"Error loading {filepath}: {e}") # Suppress error to avoid clutter
+        return None
 
 def load_all_model_metrics(results_dir, model_name):
     """Load all metrics (train, val, test) for a model"""
     metrics = {}
     for set_name in ['train', 'val', 'test']:
         files = get_model_files(results_dir, model_name, set_name)
-        if files['metrics'].exists():
-            metrics[set_name] = load_metrics(files['metrics'])
+        loaded_data = load_metrics(files['metrics'])
+        if loaded_data:
+            metrics[set_name] = loaded_data
     return metrics
 
 def display_model_metrics(metrics, model_name, set_name="Test"):
@@ -371,7 +380,7 @@ def main():
         files = get_model_files(results_dir, model_name)
         
         # Metrics tabs
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Test Metrics", "📈 Validation Metrics", "🎓 Train Metrics", "🎯 Confusion Matrix", "📉 Training History"])
+        tab1, tab2 = st.tabs(["📊 Test Metrics", " Confusion Matrix"])
         
         with tab1:
             if model_name in all_metrics and 'test' in all_metrics[model_name]:
@@ -380,23 +389,7 @@ def main():
                 st.warning(f"No test metrics found for {model_name}")
         
         with tab2:
-            if model_name in all_metrics and 'val' in all_metrics[model_name]:
-                display_model_metrics(all_metrics[model_name]['val'], model_name, "Validation")
-            else:
-                st.warning(f"No validation metrics found for {model_name}")
-        
-        with tab3:
-            if model_name in all_metrics and 'train' in all_metrics[model_name]:
-                display_model_metrics(all_metrics[model_name]['train'], model_name, "Train")
-            else:
-                st.warning(f"No train metrics found for {model_name}")
-        
-        with tab4:
             display_confusion_matrix(files['confusion_matrix'], model_name)
-        
-        with tab5:
-            # ML models don't have training history plots
-            st.info("Training history plots are available for Deep Learning models only.")
         
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -411,7 +404,7 @@ def main():
         files = get_model_files(results_dir, model_name)
         
         # Metrics tabs
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Test Metrics", "📈 Validation Metrics", "🎓 Train Metrics", "🎯 Confusion Matrix", "📉 Training History"])
+        tab1, tab2 = st.tabs(["📊 Test Metrics", "🎯 Confusion Matrix"])
         
         with tab1:
             if model_name in all_metrics and 'test' in all_metrics[model_name]:
@@ -420,22 +413,7 @@ def main():
                 st.warning(f"No test metrics found for {model_name}")
         
         with tab2:
-            if model_name in all_metrics and 'val' in all_metrics[model_name]:
-                display_model_metrics(all_metrics[model_name]['val'], model_name, "Validation")
-            else:
-                st.warning(f"No validation metrics found for {model_name}")
-        
-        with tab3:
-            if model_name in all_metrics and 'train' in all_metrics[model_name]:
-                display_model_metrics(all_metrics[model_name]['train'], model_name, "Train")
-            else:
-                st.warning(f"No train metrics found for {model_name}")
-        
-        with tab4:
             display_confusion_matrix(files['confusion_matrix'], model_name)
-        
-        with tab5:
-            display_training_history(files['training_history'], model_name)
         
         st.markdown('</div>', unsafe_allow_html=True)
     

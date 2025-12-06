@@ -23,7 +23,7 @@ class ClassificationTrainer:
     """Main trainer class for all classification models"""
     
     def __init__(self, csv_path: str, target_column: str = 'subject', 
-                 output_dir: str = "./results/classification", device: Optional[str] = None):
+                output_dir: str = "./results/classification", device: Optional[str] = None):
         """
         Initialize trainer
         
@@ -113,7 +113,7 @@ class ClassificationTrainer:
         # 1. Random Forest
         print("\n1. Training Random Forest...")
         # Optimize for large datasets: reduce estimators and depth
-        n_samples = len(X_train)
+        n_samples = X_train.shape[0]
         if n_samples > 50000:
             n_estimators = 50  # Reduce for large datasets
             max_depth = 15
@@ -126,11 +126,11 @@ class ClassificationTrainer:
         print("   Training in progress... (this may take a few minutes)")
         rf_model.train(X_train, y_train)
         print("   ✅ Random Forest training complete!")
-        models['Random Forest'] = rf_model
+        models['RandomForest'] = rf_model
         
         # 2. SVM - Use Linear kernel for large datasets (much faster)
         print("\n2. Training SVM...")
-        n_samples = len(X_train)
+        n_samples = X_train.shape[0]
         if n_samples > 30000:
             # Use LinearSVM for large datasets (much faster than RBF)
             from sklearn.svm import LinearSVC
@@ -163,14 +163,14 @@ class ClassificationTrainer:
             class LinearSVMModel:
                 def __init__(self, model):
                     self.model = model
-                    self.name = "SVM"
+                    self.name = "LinearSVM"
                 def predict(self, X):
                     return self.model.predict(X)
                 def predict_proba(self, X):
                     return self.model.predict_proba(X)
             
             svm_model = LinearSVMModel(calibrated_svm)
-            print("   ✅ SVM training complete!")
+            print("   ✅ LinearSVM training complete!")
         else:
             # Use RBF for smaller datasets
             svm_model = SVMModel(kernel='rbf', C=1.0, random_state=42)
@@ -178,14 +178,14 @@ class ClassificationTrainer:
             svm_model.train(X_train, y_train)
             print("   ✅ SVM training complete!")
         
-        models['SVM'] = svm_model
+        models['LinearSVM'] = svm_model
         
         # Evaluate ML models
         for model_name, model in models.items():
             print(f"\nEvaluating {model_name}...")
             
             # For large datasets, skip train evaluation or use sample
-            n_train = len(X_train)
+            n_train = X_train.shape[0]
             if n_train > 50000:
                 print(f"   Large training set ({n_train} samples). Evaluating on sample for train set...")
                 # Sample 10k for train evaluation
@@ -495,8 +495,8 @@ class ClassificationTrainer:
             history['val_loss'].append(avg_val_loss)
             
             print(f"Epoch {epoch+1}/{epochs} - "
-                  f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.4f}, "
-                  f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}")
+                f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.4f}, "
+                f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}")
         
         return history
     
@@ -525,7 +525,7 @@ class ClassificationTrainer:
         return np.array(predictions), np.array(probabilities)
     
     def train_all(self, dl_epochs=20, dl_batch_size=32, dl_lr=0.001,
-                  transformer_epochs=10, transformer_batch_size=16, transformer_lr=2e-5):
+                transformer_epochs=10, transformer_batch_size=16, transformer_lr=2e-5):
         """Train all models"""
         print("\n" + "="*80)
         print("COMPREHENSIVE CLASSIFICATION MODEL TRAINING")
@@ -566,16 +566,16 @@ def main():
     
     parser = argparse.ArgumentParser(description='Train Classification Models')
     parser.add_argument('--csv_path', type=str, default='quiz_data.csv',
-                       help='Path to CSV file')
+                    help='Path to CSV file')
     parser.add_argument('--target_column', type=str, default='subject',
-                       choices=['subject', 'difficulty', 'question_type'],
-                       help='Column to classify')
+                    choices=['subject', 'difficulty', 'question_type'],
+                    help='Column to classify')
     parser.add_argument('--output_dir', type=str, default='./results/classification',
-                       help='Output directory')
+                    help='Output directory')
     parser.add_argument('--dl_epochs', type=int, default=20,
-                       help='Epochs for DL models')
+                    help='Epochs for DL models')
     parser.add_argument('--transformer_epochs', type=int, default=10,
-                       help='Epochs for Transformer model')
+                    help='Epochs for Transformer model')
     
     args = parser.parse_args()
     
