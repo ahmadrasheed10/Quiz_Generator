@@ -366,8 +366,37 @@ def main():
         comparison_df = pd.DataFrame(comparison_data)
         st.dataframe(comparison_df, use_container_width=True, hide_index=True)
         
-        # Comparison visualization
-        compare_models(all_metrics)
+        # Try to display model_comparison.png from saved_models
+        target_column = st.session_state.get('target_column', 'subject')
+        comparison_img_path = f"./saved_models/{target_column}/model_comparison.png"
+        
+        col_chart1, col_chart2 = st.columns([1, 1])
+        
+        with col_chart1:
+            if os.path.exists(comparison_img_path):
+                st.markdown("#### 📊 Model Accuracy Chart")
+                img = Image.open(comparison_img_path)
+                st.image(img, caption="Model Performance Comparison", use_container_width=True)
+            else:
+                # Fallback to generated comparison
+                st.markdown("#### 📊 Generated Comparison")
+                compare_models(all_metrics)
+        
+        with col_chart2:
+            # Optional: Show additional comparison or metrics
+            st.markdown("#### 📈 Key Insights")
+            
+            # Find best model
+            accuracies_list = [(row['Model'], float(row['Accuracy'])) for row in comparison_data]
+            if accuracies_list:
+                best_model, best_acc = max(accuracies_list, key=lambda x: x[1])
+                st.success(f"**Best Model**: {best_model}")
+                st.metric("Accuracy", f"{best_acc:.4f}")
+                
+                # Show all model accuracies
+                for model, acc in accuracies_list:
+                    if model != best_model:
+                        st.info(f"**{model}**: {acc:.4f}")
     
     # Machine Learning Models Section
     st.markdown("---")
