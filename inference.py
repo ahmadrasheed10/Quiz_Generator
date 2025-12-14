@@ -71,7 +71,13 @@ class QuizGenerator:
         input_text = f"Generate {difficulty} {question_type} question for {subject} topic: {topic}"
         
         # Tokenize input
-        
+        inputs = self.tokenizer(
+            input_text,
+            max_length=512,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt"
+        ).to(self.device)
         
         # Generate question
         with torch.no_grad():
