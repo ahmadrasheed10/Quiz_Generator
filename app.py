@@ -150,14 +150,7 @@ SUBJECT_OPTIONS = [
     "Theory of Computation and Automata",
 ]
 
-CODING_SUBJECTS = [
-    "COAL",
-    "Data Structures and Algorithms",
-    "Machine Learning and Operations",
-    "Object Oriented Programming",
-    "Operating System",
-    "Programming Fundamentals",
-]
+
 
 if 'model_loaded' not in st.session_state:
     st.session_state.model_loaded = False
