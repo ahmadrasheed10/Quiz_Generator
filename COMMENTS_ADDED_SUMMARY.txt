@@ -1,0 +1,82 @@
+================================================================================
+                    CODE COMMENTS ADDED - SUMMARY
+================================================================================
+
+Added simple, natural comments to the following files to explain what each
+section does. Comments are brief (2-3 lines) in plain English.
+
+FILES UPDATED:
+==============
+
+1. train_classification.py
+   ✓ Class initialization comments
+   ✓ Data preparation section comments
+   ✓ Model training explanations
+   ✓ Evaluation process comments
+   ✓ Deep learning training loop comments
+
+2. train.py (T5 training)
+   ✓ Class purpose explanation
+   ✓ Tokenizer and model loading
+   ✓ Training history tracking
+   ✓ ROUGE metric calculation
+   ✓ Dataset preparation comments
+
+3. inference.py (Question generation)
+   ✓ Class description
+   ✓ Device selection logic
+   ✓ Model loading process
+   ✓ Prompt building
+   ✓ Generation parameter explanations
+   ✓ Text decoding comments
+
+4. rag_inference.py (RAG approach)
+   ✓ RAG concept explanation
+   ✓ Model loading comments
+   ✓ Embeddings caching logic
+   ✓ Similarity search explanation
+   ✓ Prompt augmentation with examples
+   ✓ RAG vs baseline generation
+
+5. classification_models.py
+   ✓ Random Forest explanation
+   ✓ SVM description
+   ✓ LSTM architecture comments
+   ✓ CNN pattern detection explanation
+   ✓ Model forward pass comments
+
+6. app.py (Streamlit interface)
+   ✓ Session state management
+   ✓ Model loading caching
+   ✓ Latest checkpoint finder
+   ✓ PDF generation function
+   ✓ User input handling
+   ✓ Question generation flow
+
+COMMENT STYLE:
+==============
+- Simple, conversational English
+- 2-3 lines maximum per section
+- Explains WHAT code does, not HOW (code itself shows how)
+- Natural language (not technical jargon)
+- Non-plagiarized (original phrasing)
+
+EXAMPLES:
+=========
+
+Instead of: "Initialize the neural network architecture"
+We wrote: "Build LSTM model - remembers previous words while reading"
+
+Instead of: "Perform data preprocessing and tokenization"
+We wrote: "Turn text into lists of numbers that models can understand"
+
+Instead of: "Execute the training iteration loop"
+We wrote: "Teach the model by showing it examples"
+
+Instead of: "Implement retrieval augmented generation"
+We wrote: "Find similar questions first, then use them as examples for T5"
+
+This makes the code easier to understand during TA review while keeping
+comments brief and natural!
+
+================================================================================

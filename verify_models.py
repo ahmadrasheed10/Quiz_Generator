@@ -10,7 +10,7 @@ def check_models(task='subject'):
     """Check if all models are trained and saved"""
     
     print("=" * 70)
-    print("🔍 MODEL VERIFICATION CHECK")
+    print(" MODEL VERIFICATION CHECK")
     print("=" * 70)
     
     model_dir = f'./saved_models/{task}'
@@ -32,8 +32,8 @@ def check_models(task='subject'):
     print(f"\n📁 Checking directory: {model_dir}")
     
     if not os.path.exists(model_dir):
-        print(f"❌ Directory not found!")
-        print(f"\n⚠️  MODELS NOT TRAINED YET!")
+        print(f" Directory not found!")
+        print(f"\n  MODELS NOT TRAINED YET!")
         print(f"\nTo train models:")
         print(f"1. Run: Train_Models_Save_For_Prediction.ipynb")
         print(f"2. Or upload to Google Colab and run there")
@@ -51,9 +51,9 @@ def check_models(task='subject'):
         if os.path.exists(filepath):
             size_mb = os.path.getsize(filepath) / (1024 * 1024)
             total_size += size_mb
-            print(f"  ✅ {description:25} ({size_mb:.2f} MB)")
+            print(f"  {description:25} ({size_mb:.2f} MB)")
         else:
-            print(f"  ❌ {description:25} (MISSING!)")
+            print(f"  {description:25} (MISSING!)")
             all_found = False
     
     print(f"\n💾 Total size: {total_size:.2f} MB")
@@ -65,8 +65,8 @@ def check_models(task='subject'):
         print("🎉 You can run the prediction app now!")
         print("\nRun: streamlit run prediction_app.py")
     else:
-        print("❌ SOME MODELS MISSING!")
-        print("⚠️  Please train models first!")
+        print("SOME MODELS MISSING!")
+        print(" Please train models first!")
         print("\nRun: Train_Models_Save_For_Prediction.ipynb")
     print("=" * 70)
     
@@ -91,7 +91,7 @@ def check_all_tasks():
     print("=" * 70)
     
     for task in tasks:
-        status = "✅ Ready" if results[task] else "❌ Not trained"
+        status = "Ready" if results[task] else " Not trained"
         print(f"{task:20} : {status}")
     
     print("=" * 70)

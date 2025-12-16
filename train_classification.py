@@ -19,6 +19,8 @@ from classification_models import (
 )
 from classification_evaluator import ClassificationEvaluator
 
+# This class handles training for all our models
+# It sets up data, trains models, and saves results
 class ClassificationTrainer:
     """Main trainer class for all classification models"""
     
@@ -38,14 +40,14 @@ class ClassificationTrainer:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
-        # Set device
+        # Pick GPU if available, otherwise use CPU for training
         if device is None:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             self.device = torch.device(device)
         print(f"Using device: {self.device}")
         
-        # Will be initialized in prepare_data
+        # Empty containers that get filled when we load the data
         self.data_loaders = {}
         self.datasets = {}
         self.num_classes = None
@@ -58,7 +60,7 @@ class ClassificationTrainer:
         print("Preparing Data with Different Embeddings")
         print("="*60)
         
-        # TF-IDF for ML models
+        # Convert text to numbers using TF-IDF for Random Forest and SVM
         print("\n1. Preparing TF-IDF embeddings for ML models...")
         self.data_loaders['tfidf'] = ClassificationDataLoader(
             self.csv_path, self.target_column, embedding_type='tfidf'
@@ -67,7 +69,7 @@ class ClassificationTrainer:
         self.num_classes = tfidf_data['num_classes']
         self.class_names = tfidf_data['class_names']
         
-        # Word2Vec for LSTM/CNN
+        # Make word sequences for deep learning models
         print("\n2. Preparing Word2Vec embeddings for LSTM/CNN...")
         self.data_loaders['word2vec'] = ClassificationDataLoader(
             self.csv_path, self.target_column, embedding_type='word2vec'
@@ -81,14 +83,14 @@ class ClassificationTrainer:
         )
         bert_data = self.data_loaders['bert'].prepare_datasets()
         
-        # Store datasets
+        # Keep all prepared data in one place for easy access
         self.datasets = {
             'tfidf': tfidf_data,
             'word2vec': word2vec_data,
             'bert': bert_data
         }
         
-        # Initialize evaluator
+        # Set up the tool that will measure how good our models are
         self.evaluator = ClassificationEvaluator(self.class_names, self.output_dir)
         
         print(f"\nNumber of classes: {self.num_classes}")
@@ -100,6 +102,7 @@ class ClassificationTrainer:
         print("Training Machine Learning Models")
         print("="*60)
         
+        # Grab the TF-IDF data we prepared earlier
         data = self.datasets['tfidf']
         X_train = data['train']['embeddings']
         y_train = data['train']['labels']
@@ -110,12 +113,12 @@ class ClassificationTrainer:
         
         models = {}
         
-        # 1. Random Forest
+        # Train Random Forest - uses multiple decision trees
         print("\n1. Training Random Forest...")
-        # Optimize for large datasets: reduce estimators and depth
+        # Use fewer trees for big datasets to save time
         n_samples = X_train.shape[0]
         if n_samples > 50000:
-            n_estimators = 50  # Reduce for large datasets
+            n_estimators = 50
             max_depth = 15
             print(f"   Large dataset detected ({n_samples} samples). Using optimized parameters: n_estimators={n_estimators}, max_depth={max_depth}")
         else:
@@ -128,9 +131,10 @@ class ClassificationTrainer:
         print("   ✅ Random Forest training complete!")
         models['RandomForest'] = rf_model
         
-        # 2. SVM - Use Linear kernel for large datasets (much faster)
+        # Train SVM - finds the best boundary between classes
         print("\n2. Training SVM...")
         n_samples = X_train.shape[0]
+        # LinearSVM works better for lots of data
         if n_samples > 30000:
             # Use LinearSVM for large datasets (much faster than RBF)
             from sklearn.svm import LinearSVC
@@ -180,15 +184,15 @@ class ClassificationTrainer:
         
         models['LinearSVM'] = svm_model
         
-        # Evaluate ML models
+        # Check how well each ML model does on our data
         for model_name, model in models.items():
             print(f"\nEvaluating {model_name}...")
             
-            # For large datasets, skip train evaluation or use sample
+            # For huge datasets, just check a sample to save time
             n_train = X_train.shape[0]
             if n_train > 50000:
                 print(f"   Large training set ({n_train} samples). Evaluating on sample for train set...")
-                # Sample 10k for train evaluation
+                # Pick 10k random samples instead of using all data
                 sample_idx = np.random.choice(n_train, size=min(10000, n_train), replace=False)
                 X_train_sample = X_train[sample_idx]
                 y_train_sample = y_train[sample_idx]
@@ -229,28 +233,28 @@ class ClassificationTrainer:
         print("Training Deep Learning Models")
         print("="*60)
         
-        # Note: For LSTM/CNN, we need to create a vocabulary from texts
-        # This is a simplified version - in practice, you'd use proper tokenization
+        # Get ready to build vocabulary from all question text
         data = self.datasets['word2vec']
         
-        # Create simple tokenization for LSTM/CNN
-        # In practice, you'd use a proper tokenizer
+        # Make a list of all words we see in the questions
         all_texts = list(data['train']['texts']) + list(data['val']['texts']) + list(data['test']['texts'])
         word_counts = Counter()
         for text in all_texts:
             words = str(text).lower().split()
             word_counts.update(words)
         
+        # Build dictionary mapping words to numbers
         vocab = {word: idx + 2 for idx, (word, count) in enumerate(word_counts.most_common(10000))}
-        vocab['<PAD>'] = 0
-        vocab['<UNK>'] = 1
+        vocab['<PAD>'] = 0  # padding for short sentences
+        vocab['<UNK>'] = 1  # unknown words we haven't seen
         vocab_size = len(vocab)
-        self.vocab = vocab  # Store vocab for later use
+        self.vocab = vocab
         
+        # Turn text into lists of numbers that models can understand
         def text_to_sequence(text, max_length=512):
             words = str(text).lower().split()
             seq = [vocab.get(word, vocab['<UNK>']) for word in words[:max_length]]
-            seq = seq + [vocab['<PAD>']] * (max_length - len(seq))
+            seq = seq + [vocab['<PAD>']] * (max_length - len(seq))  # pad to same length
             return seq
         
         # Create datasets
@@ -278,7 +282,7 @@ class ClassificationTrainer:
         models = {}
         histories = {}
         
-        # 1. LSTM
+        # Build LSTM model - remembers previous words while reading
         print("\n1. Training LSTM...")
         lstm_model = LSTMClassifier(
             vocab_size=vocab_size,
@@ -295,13 +299,13 @@ class ClassificationTrainer:
         models['LSTM'] = lstm_model
         histories['LSTM'] = lstm_history
         
-        # 2. CNN
+        # Build CNN model - finds important patterns in text
         print("\n2. Training CNN...")
         cnn_model = CNNClassifier(
             vocab_size=vocab_size,
             embedding_dim=300,
             num_filters=100,
-            filter_sizes=[3, 4, 5],
+            filter_sizes=[3, 4, 5],  # look at 3, 4, and 5 words together
             num_classes=self.num_classes,
             dropout=0.3
         ).to(self.device)
@@ -312,7 +316,7 @@ class ClassificationTrainer:
         models['CNN'] = cnn_model
         histories['CNN'] = cnn_history
         
-        # Evaluate DL models
+        # Train each deep learning model and save their performance
         for model_name, model in models.items():
             print(f"\nEvaluating {model_name}...")
             
@@ -438,6 +442,7 @@ class ClassificationTrainer:
             train_correct = 0
             train_total = 0
             
+            # Go through each batch of data
             for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
                 if is_bert:
                     input_ids = batch['input_ids'].to(self.device)
@@ -462,7 +467,7 @@ class ClassificationTrainer:
             train_acc = train_correct / train_total
             avg_train_loss = train_loss / len(train_loader)
             
-            # Validation
+            # Check how well it does on validation data (data it hasn't seen)
             model.eval()
             val_loss = 0
             val_correct = 0

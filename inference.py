@@ -6,6 +6,7 @@ from transformers import T5ForConditionalGeneration, T5Tokenizer
 import os
 from typing import Optional
 
+# This class generates quiz questions using our trained T5 model
 class QuizGenerator:
     """Class for generating quiz questions using fine-tuned T5 model"""
     
@@ -18,6 +19,7 @@ class QuizGenerator:
             device: Device to run inference on ('cuda', 'cpu', or None for auto)
         """
         
+        # Figure out if we should use GPU or CPU
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
@@ -26,7 +28,7 @@ class QuizGenerator:
         print(f"Loading model from: {model_path}")
         print(f"Using device: {self.device}")
         
-        # Load tokenizer and model
+        # Load the trained model and tokenizer from disk
         self.tokenizer = T5Tokenizer.from_pretrained(model_path)
         self.model = T5ForConditionalGeneration.from_pretrained(model_path)
         self.model.to(self.device)
@@ -67,10 +69,10 @@ class QuizGenerator:
         Returns:
             Generated question(s) as string or list of strings
         """
-        # Create input prompt
+        # Build a sentence telling the model what kind of question we want
         input_text = f"Generate {difficulty} {question_type} question for {subject} topic: {topic}"
         
-        # Tokenize input
+        # Turn our text into numbers the model can process
         inputs = self.tokenizer(
             input_text,
             max_length=512,
@@ -79,7 +81,7 @@ class QuizGenerator:
             return_tensors="pt"
         ).to(self.device)
         
-        # Generate question
+        # Tell the model to generate a question
         with torch.no_grad():
             # Prepare generation kwargs
             gen_kwargs = {
@@ -87,9 +89,10 @@ class QuizGenerator:
                 "num_return_sequences": num_return_sequences,
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "eos_token_id": self.tokenizer.eos_token_id,
-                "repetition_penalty": 1.2  # Reduce repetition
+                "repetition_penalty": 1.2  # don't repeat same words too much
             }
             
+            # Use random sampling for variety in questions
             if do_sample:
                 # Use sampling
                 gen_kwargs.update({
@@ -107,7 +110,7 @@ class QuizGenerator:
             
             outputs = self.model.generate(**inputs, **gen_kwargs)
         
-        # Decode generated text
+        # Convert numbers back into readable text
         generated_questions = self.tokenizer.batch_decode(
             outputs,
             skip_special_tokens=True

@@ -12,6 +12,7 @@ from typing import Dict, Optional
 
 # ==================== Machine Learning Models ====================
 
+# Simple wrapper for Random Forest - uses decision trees to vote on answers
 class RandomForestModel:
     """Random Forest Classifier"""
     def __init__(self, n_estimators=100, max_depth=None, random_state=42):
@@ -35,6 +36,7 @@ class RandomForestModel:
         """Predict class probabilities"""
         return self.model.predict_proba(X)
 
+# SVM finds the best line/plane to separate different classes
 class SVMModel:
     """Support Vector Machine Classifier"""
     def __init__(self, kernel='rbf', C=1.0, random_state=42):
@@ -60,13 +62,17 @@ class SVMModel:
 
 # ==================== Deep Learning Models ====================
 
+# LSTM reads text word by word and remembers what it saw before
+# Bidirectional means it reads both forwards and backwards
 class LSTMClassifier(nn.Module):
     """LSTM-based Text Classifier"""
     def __init__(self, vocab_size, embedding_dim=300, hidden_dim=128, 
                  num_layers=2, num_classes=2, dropout=0.3):
         super(LSTMClassifier, self).__init__()
         self.name = "LSTM"
+        # Turn word IDs into dense vectors
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        # LSTM that processes sequences in both directions
         self.lstm = nn.LSTM(
             embedding_dim, 
             hidden_dim, 
@@ -87,6 +93,8 @@ class LSTMClassifier(nn.Module):
         output = self.fc(output)
         return output
 
+# CNN looks for important patterns (like 3-word or 4-word phrases)
+# Good at spotting key phrases that indicate the class
 class CNNClassifier(nn.Module):
     """CNN-based Text Classifier"""
     def __init__(self, vocab_size, embedding_dim=300, num_filters=100,
@@ -94,6 +102,7 @@ class CNNClassifier(nn.Module):
         super(CNNClassifier, self).__init__()
         self.name = "CNN"
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        # Create multiple filters to catch different sized patterns
         self.convs = nn.ModuleList([
             nn.Conv1d(embedding_dim, num_filters, kernel_size=fs)
             for fs in filter_sizes
@@ -102,9 +111,9 @@ class CNNClassifier(nn.Module):
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
-        # x shape: (batch_size, seq_len)
+        # Turn words into vectors
         embedded = self.embedding(x)  # (batch_size, seq_len, embedding_dim)
-        embedded = embedded.permute(0, 2, 1)  # (batch_size, embedding_dim, seq_len)
+        embedded = embedded.permute(0, 2, 1)  # flip for CNN processing
         
         conv_outputs = []
         for conv in self.convs:

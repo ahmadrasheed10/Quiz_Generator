@@ -32,9 +32,8 @@ class RAGEvaluator:
             df["question"] = df["question"].astype(str)
         return df
 
-    # ----------------------------
-    # Completeness
-    # ----------------------------
+    # completeness
+
     def evaluate_completeness(
         self,
         generated_question: str,
