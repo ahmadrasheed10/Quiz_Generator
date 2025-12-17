@@ -1,7 +1,10 @@
 """
 Streamlit Frontend for Quiz Generator Model
 """
-
+import streamlit as st
+import os
+from inference import QuizGenerator
+import time
 from datetime import datetime
 from io import BytesIO
 from fpdf import FPDF
