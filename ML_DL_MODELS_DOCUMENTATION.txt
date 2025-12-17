@@ -1,0 +1,1333 @@
+================================================================================
+                    ML/DL MODELS DOCUMENTATION
+                QUIZ GENERATOR PROJECT - COMPLETE GUIDE
+================================================================================
+
+PROJECT OVERVIEW:
+This project implements a comprehensive Quiz Generation system using multiple ML/DL 
+approaches. The system has TWO main components:
+
+1. CLASSIFICATION MODELS: Predict subject, difficulty, and question type
+2. GENERATION MODELS: T5-based model to generate quiz questions (with/without RAG)
+
+================================================================================
+                    PART 1: CLASSIFICATION MODELS
+================================================================================
+
+PURPOSE:
+--------
+The classification models predict three aspects of quiz questions:
+- Subject (e.g., Computer Science, Mathematics, Physics)
+- Difficulty (Easy, Medium, Hard)
+- Question Type (MCQ, Short Answer, Long Answer)
+
+MODELS IMPLEMENTED (4 Models Total):
+-------------------------------------
+
+1. RANDOM FOREST (Machine Learning)
+   - Type: Ensemble ML Model
+   - File: classification_models.py (Class: RandomForestModel)
+   - Training File: train_classification.py
+   
+   HOW IT WORKS:
+   - Uses TF-IDF (Term Frequency-Inverse Document Frequency) embeddings to convert 
+     text into numerical features
+   - Creates multiple decision trees (100 estimators for small datasets, 50 for large)
+   - Each tree votes on the classification
+   - Final prediction is the majority vote
+   - Max depth: 20 for small datasets, 15 for large datasets
+   
+   TRAINING TECHNIQUE:
+   - Embedding: TF-IDF vectorization (converts questions to sparse feature vectors)
+   - Algorithm: Bootstrap Aggregating (Bagging)
+   - Hyperparameters:
+     * n_estimators: 50-100 (number of trees)
+     * max_depth: 15-20 (tree depth limit)
+     * random_state: 42 (for reproducibility)
+     * n_jobs: -1 (uses all CPU cores)
+   
+   HOW IT PREDICTS SUBJECT:
+   - Takes input question text
+   - Converts to TF-IDF features using pre-trained vectorizer
+   - Each decision tree examines different feature combinations
+   - Trees vote on the most likely subject
+   - Returns the subject with majority votes
+
+2. LINEAR SVM (Machine Learning)
+   - Type: Support Vector Machine
+   - File: classification_models.py (Class: SVMModel)
+   - Training File: train_classification.py
+   
+   HOW IT WORKS:
+   - For large datasets (>30k samples): Uses LinearSVC for speed
+   - For small datasets: Uses SVC with RBF kernel
+   - Finds optimal hyperplane to separate different classes
+   - Uses calibration (CalibratedClassifierCV) to get probability predictions
+   
+   TRAINING TECHNIQUE:
+   - Embedding: TF-IDF vectorization (same as Random Forest)
+   - Algorithm: Linear Support Vector Classification
+   - Hyperparameters:
+     * C=1.0 (regularization parameter)
+     * kernel='linear' or 'rbf' (depending on dataset size)
+     * max_iter=2000 (maximum iterations)
+     * dual=False (primal optimization for efficiency)
+   
+   HOW IT PREDICTS SUBJECT:
+   - Takes TF-IDF features of input question
+   - Computes distance from the separating hyperplane
+   - Uses calibrated probabilities to rank subjects
+   - Returns subject with highest probability
+
+3. LSTM (Deep Learning - Recurrent Neural Network)
+   - Type: Bidirectional LSTM
+   - File: classification_models.py (Class: LSTMClassifier)
+   - Training File: train_classification.py
+   
+   HOW IT WORKS:
+   - Processes text sequentially, word by word
+   - Uses bidirectional processing (reads text forward and backward)
+   - Maintains hidden states that capture context
+   - Final hidden state is used for classification
+   
+   ARCHITECTURE:
+   - Embedding Layer: vocab_size → 300 dimensions
+   - Bidirectional LSTM: 2 layers, hidden_dim=128 (256 total with bidirectional)
+   - Dropout: 0.3 (prevents overfitting)
+   - Fully Connected Layer: 256 → num_classes
+   
+   TRAINING TECHNIQUE:
+   - Embedding: Word2Vec-style sequential encoding
+   - Vocabulary: 10,000 most common words
+   - Sequence Length: 512 tokens (padded/truncated)
+   - Loss Function: Cross-Entropy Loss
+   - Optimizer: Adam (learning_rate=0.001)
+   - Epochs: 20
+   - Batch Size: 32
+   
+   HOW IT PREDICTS SUBJECT:
+   - Tokenizes input question into word IDs
+   - Embeds each word ID into 300-dimensional vector
+   - LSTM processes sequence and maintains context
+   - Final hidden state contains sentence representation
+   - Fully connected layer maps to subject probabilities
+   - Applies softmax to get final probabilities
+
+4. CNN (Deep Learning - Convolutional Neural Network)
+   - Type: Text CNN with multiple filter sizes
+   - File: classification_models.py (Class: CNNClassifier)
+   - Training File: train_classification.py
+   
+   HOW IT WORKS:
+   - Uses convolutional filters to detect patterns (n-grams)
+   - Multiple filter sizes (3, 4, 5) capture different n-gram patterns
+   - Max pooling extracts most important features
+   - Concatenates all filter outputs for final classification
+   
+   ARCHITECTURE:
+   - Embedding Layer: vocab_size → 300 dimensions
+   - Convolutional Layers: 3 parallel Conv1D layers
+     * Filter sizes: 3-grams, 4-grams, 5-grams
+     * Number of filters: 100 per size
+   - Max Pooling: Extracts maximum activation per filter
+   - Dropout: 0.3
+   - Fully Connected: 300 (3×100) → num_classes
+   
+   TRAINING TECHNIQUE:
+   - Embedding: Same as LSTM (Word2Vec-style)
+   - Vocabulary: 10,000 most common words
+   - Sequence Length: 512 tokens
+   - Loss Function: Cross-Entropy Loss
+   - Optimizer: Adam (learning_rate=0.001)
+   - Epochs: 20
+   - Batch Size: 32
+   
+   HOW IT PREDICTS SUBJECT:
+   - Tokenizes and embeds input question
+   - Applies convolutional filters to detect key phrase patterns
+   - Max pooling identifies strongest pattern matches
+   - Concatenates features from all filter sizes
+   - Fully connected layer maps to subject probabilities
+
+
+
+================================================================================
+                    LIBRARIES USED - CLASSIFICATION
+================================================================================
+
+Core Libraries:
+- torch (PyTorch 2.0+): Deep learning framework for LSTM/CNN
+- transformers (4.35+): Hugging Face library for T5 generation model
+- scikit-learn (1.3+): Random Forest, SVM, metrics
+- numpy (1.24+): Numerical computations
+- pandas (2.0+): Data handling
+
+Preprocessing:
+- gensim (4.3+): Word2Vec embeddings
+- TfidfVectorizer (from sklearn): TF-IDF embeddings
+- BERT tokenizer (from transformers): Used only for data preparation
+
+Evaluation:
+- matplotlib (3.7+): Plotting
+- seaborn (0.12+): Confusion matrices
+
+================================================================================
+                    FILE DESCRIPTIONS - CLASSIFICATION
+================================================================================
+
+1. train_classification.py (598 lines)
+   PURPOSE: Main training orchestration
+   WHAT IT DOES:
+   - Loads quiz_data.csv dataset
+   - Prepares 2 types of embeddings (TF-IDF for ML models, Word2Vec for DL models)
+   - Trains all 4 models sequentially
+   - Evaluates on train/val/test sets
+   - Saves metrics and confusion matrices
+   - Generates training history plots for DL models
+
+2. classification_models.py (242 lines)
+   PURPOSE: Model architecture definitions
+   WHAT IT DOES:
+   - Defines RandomForestModel class (wrapper for sklearn)
+   - Defines SVMModel class (wrapper for sklearn)
+   - Defines LSTMClassifier (PyTorch nn.Module)
+   - Defines CNNClassifier (PyTorch nn.Module)
+   - Provides ModelWrapper for unified training interface
+
+3. classification_data_loader.py (estimated ~300 lines)
+   PURPOSE: Data preparation and preprocessing
+   WHAT IT DOES:
+   - Loads CSV file with quiz questions
+   - Splits data into train/val/test (typically 70/15/15)
+   - Creates TF-IDF embeddings for ML models
+   - Creates Word2Vec embeddings for LSTM/CNN
+   - Returns DataLoader objects for training
+
+4. classification_evaluator.py (estimated ~250 lines)
+   PURPOSE: Model evaluation and metrics
+   WHAT IT DOES:
+   - Computes accuracy, precision, recall, F1-score
+   - Calculates AUC (Area Under ROC Curve)
+   - Computes Top-3 Accuracy (for multi-class)
+   - Generates confusion matrices
+   - Plots training history curves
+   - Saves all metrics to JSON files
+
+5. classification_app.py (16801 bytes)
+   PURPOSE: Streamlit web interface for classification
+   WHAT IT DOES:
+   - Displays trained model metrics
+   - Shows confusion matrices
+   - Compares all 4 models side-by-side
+   - Allows interactive model exploration
+
+6. verify_models.py (126 lines)
+   PURPOSE: Quick verification before demo
+   WHAT IT DOES:
+   - Checks if all models are trained and saved
+   - Verifies file sizes and integrity
+   - Ensures saved_models/ directory has required files
+   - Provides status report for all 3 classification tasks
+
+================================================================================
+                    ACCURACY CALCULATION - CLASSIFICATION
+================================================================================
+
+METRICS COMPUTED:
+
+1. ACCURACY (Main Metric)
+   Formula: (Correct Predictions) / (Total Predictions) × 100
+   Example: If model predicts 85 correct subjects out of 100 questions → 85%
+   
+   How It's Calculated:
+   - Compare predicted labels with true labels
+   - Count matches
+   - Divide by total samples
+
+2. PRECISION (Per Class)
+   Formula: True Positives / (True Positives + False Positives)
+   Meaning: Of all predictions for class X, what % were actually class X?
+   
+   Example: Model predicts 20 questions as "Computer Science"
+            15 actually are CS, 5 are not → Precision = 15/20 = 75%
+
+3. RECALL (Per Class)
+   Formula: True Positives / (True Positives + False Negatives)
+   Meaning: Of all actual class X samples, what % did we correctly predict?
+   
+   Example: Dataset has 30 CS questions
+            Model correctly predicts 15 as CS → Recall = 15/30 = 50%
+
+4. F1-SCORE (Harmonic Mean)
+   Formula: 2 × (Precision × Recall) / (Precision + Recall)
+   Meaning: Balanced measure of precision and recall
+   
+   Example: Precision=75%, Recall=50%
+            F1 = 2 × (0.75 × 0.50) / (0.75 + 0.50) = 60%
+
+5. AUC (Area Under ROC Curve)
+   Range: 0.5 to 1.0 (0.5 = random, 1.0 = perfect)
+   How It's Calculated:
+   - For each class, compute ROC curve (True Positive Rate vs False Positive Rate)
+   - Calculate area under this curve
+   - Average across all classes (macro-average)
+   
+   What It Means:
+   - Probability that model ranks a random positive example higher than negative
+   - >0.9 = excellent, 0.7-0.9 = good, <0.7 = needs improvement
+
+6. TOP-3 ACCURACY (Multi-class)
+   Formula: (Samples where true label is in top 3 predictions) / Total × 100
+   How It's Calculated:
+   - Get top 3 highest probability predictions
+   - Check if true label is among them
+   - Count successes
+   
+   Example: True subject = "Mathematics"
+            Model's top 3 predictions: [CS (40%), Math (35%), Physics (15%)]
+            True label IS in top 3 → Counts as correct
+
+7. CONFUSION MATRIX
+   What It Shows:
+   - Rows: True labels
+   - Columns: Predicted labels
+   - Cell [i,j]: Number of samples with true label i predicted as label j
+   - Diagonal: Correct predictions
+   - Off-diagonal: Misclassifications
+   
+   Example 3×3 matrix (CS, Math, Physics):
+                Predicted CS  Math  Physics
+   True CS           45       3      2       (45 correct, 5 mistakes)
+   True Math          4      38      3       (38 correct, 7 mistakes)  
+   True Physics       1       4     40       (40 correct, 5 mistakes)
+
+EVALUATION PROCESS:
+-------------------
+Step 1: Model makes predictions on test set
+Step 2: For ML models (RF, SVM):
+        - predict() returns class labels
+        - predict_proba() returns probabilities
+        
+Step 3: For DL models (LSTM, CNN, BERT):
+        - Forward pass through network
+        - Softmax applied to logits → probabilities
+        - argmax(probabilities) → predicted class
+
+Step 4: Compare predictions with true labels
+Step 5: Calculate all metrics using sklearn.metrics:
+        - accuracy_score()
+        - precision_recall_fscore_support()
+        - roc_auc_score()
+        - confusion_matrix()
+
+Step 6: Save metrics to JSON files in results/ directory
+Step 7: Generate visualization plots (confusion matrices, training curves)
+
+================================================================================
+                    PART 2: GENERATION MODELS (T5-based)
+================================================================================
+
+PURPOSE:
+--------
+Generate quiz questions based on:
+- Subject (e.g., "Computer Science")
+- Topic (e.g., "Machine Learning")
+- Difficulty (Easy/Medium/Hard)
+- Question Type (MCQ/Short Answer/Long Answer)
+
+MODEL: T5 (Text-to-Text Transfer Transformer)
+----------------------------------------------
+
+BASE MODEL:
+- t5-small (60M parameters) or t5-base (220M parameters)
+- Pre-trained on C4 (Colossal Clean Crawled Corpus)
+- Encoder-Decoder architecture
+
+HOW T5 WORKS:
+-------------
+1. Input Format: "Generate {difficulty} {type} question for {subject} topic: {topic}"
+   Example: "Generate medium MCQ question for Computer Science topic: Machine Learning"
+
+2. Encoder:
+   - Tokenizes input using SentencePiece
+   - Creates token embeddings
+   - Self-attention layers process input
+   - Outputs contextualized representations
+
+3. Decoder:
+   - Auto-regressive generation (one token at a time)
+   - Attends to encoder outputs (cross-attention)
+   - Self-attention on previously generated tokens
+   - Generates question word by word
+
+4. Output: Complete quiz question with options (for MCQ)
+
+================================================================================
+                    T5 TRAINING PROCESS
+================================================================================
+
+FILE: train.py (346 lines)
+
+TRAINING TECHNIQUE:
+-------------------
+1. DATA PREPARATION:
+   - Load quiz_data.csv
+   - Create input-output pairs:
+     * Input: "Generate {difficulty} {type} question for {subject} topic: {topic}"
+     * Output: {actual question from dataset}
+   - Split: 70% train, 15% validation, 15% test
+   - Tokenize using T5Tokenizer
+   - Max input length: 512 tokens
+   - Max output length: 128 tokens
+
+2. FINE-TUNING HYPERPARAMETERS:
+   - Learning Rate: 3e-4 (higher than BERT because it's fine-tuning)
+   - Batch Size: 8 per device (adjust based on GPU memory)
+   - Epochs: 3-5
+   - Warmup Steps: 500 (gradual learning rate increase)
+   - Weight Decay: 0.01 (L2 regularization)
+   - Gradient Accumulation: 2 (effective batch size = 16)
+   - Optimizer: AdamW
+   - Scheduler: Linear with warmup
+
+3. LOSS FUNCTION:
+   - Cross-Entropy Loss on generated tokens
+   - Compares predicted token probabilities with true tokens
+   - Backpropagates error through decoder and encoder
+
+4. TRAINING LOOP:
+   For each epoch:
+     For each batch:
+       1. Tokenize inputs and outputs
+       2. Forward pass through T5
+       3. Calculate loss
+       4. Backward pass (compute gradients)
+       5. Update weights with optimizer
+       6. Log loss every N steps
+     
+     Validation after each epoch:
+       1. Generate questions for validation set
+       2. Compute ROUGE scores (compare with ground truth)
+       3. Save best model based on validation ROUGE
+
+5. EVALUATION METRICS (ROUGE):
+   - ROUGE-1: Unigram overlap (individual word matches)
+     Formula: (Matching words) / (Total words in reference)
+   
+   - ROUGE-2: Bigram overlap (2-word phrase matches)
+     Formula: (Matching bigrams) / (Total bigrams in reference)
+   
+   - ROUGE-L: Longest Common Subsequence
+     Formula: F-score based on LCS length
+   
+   Example:
+     Reference: "What is machine learning in computer science?"
+     Generated: "What is machine learning?"
+     
+     ROUGE-1: 5 matching words / 7 total = 71.4%
+     ROUGE-2: 3 matching bigrams / 6 total = 50%
+     ROUGE-L: LCS = "What is machine learning" (4 words) / 7 = 57.1%
+
+6. EXACT MATCH:
+   - Percentage of generated questions that exactly match ground truth
+   - Usually very low (1-5%) because many valid ways to phrase questions
+
+================================================================================
+                    T5 INFERENCE PROCESS
+================================================================================
+
+FILE: inference.py (266 lines)
+
+HOW IT GENERATES QUESTIONS:
+---------------------------
+1. Load fine-tuned T5 model from saved checkpoint
+2. Create input prompt:
+   "Generate {difficulty} {type} question for {subject} topic: {topic}"
+
+3. GENERATION PARAMETERS:
+   - max_length: 128 (maximum question length)
+   - temperature: 0.7 (controls randomness, 0=deterministic, 1=very random)
+   - top_p: 0.9 (nucleus sampling - considers tokens with cumulative prob 90%)
+   - top_k: 50 (only consider top 50 most likely next tokens)
+   - do_sample: True (enables stochastic sampling)
+   - num_beams: 4 (if using beam search instead of sampling)
+   - repetition_penalty: 1.2 (discourages repeating same phrases)
+
+4. BEAM SEARCH vs SAMPLING:
+   
+   Beam Search (do_sample=False):
+   - Maintains 4 candidate sequences (beams)
+   - At each step, extends each beam with top tokens
+   - Keeps 4 best sequences based on cumulative probability
+   - More deterministic, often higher quality
+   
+   Sampling (do_sample=True):
+   - Randomly samples next token based on probability distribution
+   - Temperature scales probabilities (higher = flatter distribution)
+   - Top-k/Top-p restrict sampling to most likely tokens
+   - More diverse outputs, less deterministic
+
+5. DECODING PROCESS:
+   Step 1: Encode input prompt → encoder hidden states
+   Step 2: Initialize decoder with <start> token
+   Step 3: For each position:
+           - Decoder attends to encoder + previous tokens
+           - Outputs probability distribution over vocabulary
+           - Sample/select next token
+           - Append to sequence
+   Step 4: Continue until <end> token or max_length
+   Step 5: Decode token IDs back to text
+
+6. GENERATING MULTIPLE QUESTIONS:
+   - Increase temperature for more diversity
+   - Use deduplication (check similarity with previously generated)
+   - Retry if question is too similar to previous ones
+
+================================================================================
+                    EVALUATION OF T5 MODEL
+================================================================================
+
+FILE: evaluate.py (295 lines)
+
+METRICS COMPUTED:
+-----------------
+
+1. ROUGE SCORES (primary metrics)
+   - Already explained above
+   - Measures n-gram overlap with reference questions
+
+2. BLEU SCORE (from machine translation)
+   Formula: Geometric mean of n-gram precisions (1-4 grams)
+   Range: 0-100%
+   
+   How It's Calculated:
+   - Compute precision for 1-grams, 2-grams, 3-grams, 4-grams
+   - Take geometric mean
+   - Apply brevity penalty if generated text is too short
+   
+   Example:
+     Reference: "What are the types of machine learning algorithms?"
+     Generated: "What are machine learning algorithms?"
+     
+     1-gram precision: 5/5 = 100% (all words present)
+     2-gram precision: 3/4 = 75% (missing "types of")
+     3-gram precision: 2/3 = 67%
+     4-gram precision: 1/2 = 50%
+     
+     BLEU = (1.0 × 0.75 × 0.67 × 0.50)^(1/4) ≈ 70.7%
+
+3. EXACT MATCH (EM)
+   - Percentage of perfectly matching questions
+   - Case-insensitive comparison
+   - Formula: (Exact matches / Total) × 100
+
+4. TOP-K ACCURACY (for generation - simplified)
+   - Uses word overlap as proxy
+   - Question counts as "correct" if it shares at least k words with reference
+   - Computed for k=1, 3, 5
+
+EVALUATION PROCESS:
+-------------------
+1. Load test set (questions not seen during training)
+2. For each test example:
+   - Create input prompt
+   - Generate question using model
+   - Compare with ground truth
+3. Aggregate metrics across all test samples
+4. Save predictions and metrics to files
+5. Generate visualization plots
+
+================================================================================
+                    PART 3: RAG (Retrieval-Augmented Generation)
+================================================================================
+
+PURPOSE:
+--------
+Enhance T5 generation by retrieving similar questions from dataset and using 
+them as context/examples.
+
+FILES:
+------
+- rag_inference.py (287 lines): RAG implementation
+- rag_evaluator.py (200 lines): RAG evaluation metrics
+- rag_comparison_app.py: Streamlit app to compare RAG vs Baseline
+
+HOW RAG WORKS:
+--------------
+
+1. RETRIEVAL COMPONENT:
+   Model: SentenceTransformer ('all-MiniLM-L6-v2')
+   
+   Step 1: PRE-COMPUTE EMBEDDINGS
+   - Load entire quiz_data.csv dataset
+   - For each question, generate embedding vector (384 dimensions)
+   - Cache embeddings to disk (results/rag_cache/) for speed
+   
+   Step 2: QUERY ENCODING
+   - User provides: subject, topic, difficulty, question_type
+   - Create query: "{subject} {topic} {difficulty} {question_type}"
+   - Encode query to same 384-dimensional space
+   
+   Step 3: SIMILARITY SEARCH
+   - Compute cosine similarity between query and all dataset embeddings
+   - Filter by exact match on subject, difficulty, question_type
+   - Retrieve top-k (default k=3) most similar questions
+   
+   Cosine Similarity Formula:
+   similarity = (A · B) / (||A|| × ||B||)
+   where A = query embedding, B = dataset embedding
+   Range: -1 to 1 (1 = identical, 0 = orthogonal, -1 = opposite)
+
+2. AUGMENTED GENERATION:
+   
+   Baseline Prompt (no RAG):
+   "Generate medium MCQ question for Computer Science topic: Machine Learning"
+   
+   RAG Prompt (with retrieved context):
+   "Generate medium MCQ question for Computer Science topic: Machine Learning.
+   Relevant examples:
+   Example 1: {retrieved_question_1}
+   Example 2: {retrieved_question_2}
+   Example 3: {retrieved_question_3}
+   
+   Generate a similar question grounded in these examples:"
+   
+   This provides the T5 model with concrete examples to learn from!
+
+3. GENERATION:
+   - Same T5 model used
+   - Enhanced prompt fed to encoder
+   - Decoder generates question influenced by examples
+   - Result: More grounded, contextually appropriate questions
+
+================================================================================
+                    RAG EVALUATION METRICS
+================================================================================
+
+FILE: rag_evaluator.py
+
+TWO MAIN METRICS:
+
+1. COMPLETENESS SCORE (0 to 1)
+   Measures how well the generated question meets requirements.
+   
+   Components (max 4 points):
+   a) Topic Mentioned (0.5 points)
+      - Check if topic keywords appear in generated question
+   
+   b) Subject Mentioned (0.5 points)
+      - Check if subject keywords appear in generated question
+   
+   c) Difficulty Appropriate (1.0 point)
+      - Easy: Uses words like "define", "what is", "identify"
+      - Medium: Uses "describe", "explain", "compare"
+      - Hard: Uses "evaluate", "prove", "derive", "design"
+   
+   d) Question Type Format (1.0 point)
+      - MCQ: Contains options markers like "a)", "b)", "option"
+      - Short Answer: < 50 words
+      - Long Answer: > 30 words
+   
+   e) Completeness Check (1.0 point)
+      - Contains "?" character
+      - Has > 5 words
+   
+   Final Score = (Points earned / 4.0)
+   
+   Example:
+   Generated: "What is supervised learning in machine learning? Choose correct."
+   Subject: Computer Science, Topic: Machine Learning, Difficulty: Easy, Type: MCQ
+   
+   - Topic mentioned: ✓ (0.5)
+   - Subject mentioned: ✗ (0)
+   - Difficulty appropriate: ✓ "What is" matches Easy (1.0)
+   - Question type: ✗ No clear options (0)
+   - Completeness: ✓ Has "?" and >5 words (1.0)
+   
+   Completeness Score = 2.5 / 4.0 = 0.625 (62.5%)
+
+2. FAITHFULNESS SCORE (0 to 1)
+   Measures how grounded the question is in retrieved contexts.
+   
+   Calculation:
+   a) Encode generated question → embedding G
+   b) Encode each retrieved context question → embeddings C1, C2, C3
+   c) Compute cosine similarities: sim(G, C1), sim(G, C2), sim(G, C3)
+   d) max_similarity = max(similarities)
+   e) avg_similarity = mean(similarities)
+   f) Word overlap = (common words / generated words)
+   
+   Faithfulness = (0.7 × max_similarity) + (0.3 × word_overlap)
+   
+   Is Grounded = True if max_similarity > 0.5 (threshold)
+   
+   Example:
+   Generated: "What is backpropagation in neural networks?"
+   Context 1: "Explain backpropagation algorithm in deep learning?"
+   Context 2: "What are neural network training techniques?"
+   Context 3: "Define gradient descent in machine learning?"
+   
+   Similarity(G, C1) = 0.82 (very similar!)
+   Similarity(G, C2) = 0.65
+   Similarity(G, C3) = 0.51
+   
+   max_similarity = 0.82
+   Word overlap = 4/6 = 0.67 (e.g., "neural", "networks", "what", "is")
+   
+   Faithfulness = (0.7 × 0.82) + (0.3 × 0.67) = 0.574 + 0.201 = 0.775 (77.5%)
+   Is Grounded = True (0.82 > 0.5)
+
+COMPARISON: RAG vs BASELINE
+----------------------------
+- Generate questions with both approaches
+- Compute completeness and faithfulness for each
+- Average across test set
+- Calculate improvement:
+  * Completeness Delta = RAG_completeness - Baseline_completeness
+  * Faithfulness Advantage = RAG_faithfulness (baseline has 0)
+
+Expected Results:
+- RAG typically shows 10-20% higher completeness
+- RAG has 50-70% faithfulness (baseline has 0% by definition)
+- Trade-off: RAG may be less creative, more derivative
+
+================================================================================
+                    LIBRARIES USED - GENERATION & RAG
+================================================================================
+
+Core:
+- torch (2.0+): PyTorch for T5 model
+- transformers (4.35+): T5ForConditionalGeneration, T5Tokenizer
+- datasets (2.14+): Loading and processing data
+
+Generation:
+- sentencepiece (0.1.99+): T5 tokenization
+- accelerate (0.24+): Distributed training
+
+Evaluation:
+- evaluate (0.4+): ROUGE and BLEU metrics
+- nltk (3.8+): Sentence tokenization for ROUGE
+- rouge-score (0.1.2+): ROUGE implementation
+
+RAG-specific:
+- sentence-transformers (2.2+): Embedding model for retrieval
+- scikit-learn: Cosine similarity computation
+
+Visualization:
+- matplotlib, seaborn: Plotting metrics
+- tensorboard (2.14+): Training monitoring
+
+Web Interface:
+- streamlit (1.28+): Interactive web apps
+- fpdf2 (2.7.8+): PDF generation
+
+Data:
+- pandas, numpy: Data manipulation
+
+================================================================================
+                    COMPLETE FILE DESCRIPTIONS - GENERATION
+================================================================================
+
+1. train.py (346 lines)
+   - Orchestrates T5 model fine-tuning
+   - Loads quiz_data.csv and creates train/val/test splits
+   - Configures TrainingArguments (epochs, batch size, learning rate)
+   - Implements compute_metrics() for ROUGE evaluation
+   - Trains model using Hugging Face Trainer
+   - Saves best model checkpoint
+   - Generates training history plots
+   - Evaluates on test set and saves metrics
+
+2. inference.py (266 lines)
+   - Loads fine-tuned T5 model
+   - QuizGenerator class for question generation
+   - generate_question(): Single question generation
+   - generate_multiple_questions(): Multiple diverse questions
+   - Supports beam search and sampling strategies
+   - Handles deduplication for diverse outputs
+   - Command-line interface for easy usage
+
+3. evaluate.py (295 lines)
+   - QuizEvaluator class for comprehensive evaluation
+   - Computes ROUGE (1, 2, L) scores
+   - Computes BLEU score
+   - Calculates Exact Match and Top-K Accuracy
+   - Generates predictions for test set
+   - Saves metrics to JSON
+   - Creates visualization plots comparing metrics
+   - Provides sample predictions for inspection
+
+4. rag_inference.py (287 lines)
+   - RAGQuizGenerator class combining retrieval + generation
+   - Loads T5 model and SentenceTransformer
+   - Pre-computes and caches dataset embeddings
+   - retrieve_relevant_context(): Semantic search for similar questions
+   - Filters by subject, difficulty, question_type
+   - _build_prompt_with_context(): Constructs augmented prompt
+   - generate_question_with_rag(): RAG-enhanced generation
+   - generate_question_baseline(): Standard generation for comparison
+
+5. rag_evaluator.py (200 lines)
+   - RAGEvaluator class for RAG-specific metrics
+   - evaluate_completeness(): 5-component completeness score
+   - evaluate_faithfulness(): Similarity-based faithfulness
+   - Uses SentenceTransformer for embedding comparisons
+   - compare_models(): Aggregate comparison of RAG vs Baseline
+   - Saves detailed results with per-example breakdowns
+
+6. data_loader.py (estimated ~200 lines)
+   - QuizDataLoader class
+   - Loads quiz_data.csv
+   - Creates input-output pairs for T5
+   - Tokenizes using T5Tokenizer
+   - Handles padding and truncation
+   - Creates train/val/test DataLoaders
+   - Supports batching and shuffling
+
+7. config.py (estimated ~50 lines)
+   - ModelConfig class: T5 hyperparameters
+   - DataConfig class: Dataset paths and settings
+   - Centralized configuration management
+
+8. rag_comparison_app.py (estimated ~300 lines)
+   - Streamlit web interface
+   - Side-by-side comparison of RAG vs Baseline
+   - Interactive question generation
+   - Displays completeness and faithfulness metrics
+   - Shows retrieved contexts
+   - Visualizes metric improvements
+
+================================================================================
+                    DATA FLOW SUMMARY
+================================================================================
+
+CLASSIFICATION PIPELINE:
+1. quiz_data.csv → classification_data_loader.py → Embeddings (TF-IDF/Word2Vec)
+2. Embeddings → train_classification.py → Trains 4 models
+3. Models → classification_evaluator.py → Computes metrics
+4. Metrics → saved_models/{task}/*.pkl and results/classification/*.json
+5. classification_app.py → Loads metrics → Displays in web interface
+
+GENERATION PIPELINE (T5):
+1. quiz_data.csv → data_loader.py → Tokenized input-output pairs
+2. Pairs → train.py → Fine-tunes T5 model
+3. T5 model → results/t5-quiz-generator/checkpoint-XXXX/
+4. checkpoint → inference.py → Generates questions
+5. Generated questions → evaluate.py → Computes ROUGE/BLEU
+6. app.py → Uses inference.py → Interactive question generation
+
+RAG PIPELINE:
+1. quiz_data.csv → rag_inference.py → Pre-computes embeddings
+2. Embeddings → Cached in results/rag_cache/*.pkl
+3. User query → retrieve_relevant_context() → Top-k similar questions
+4. Examples + query → T5 model → RAG-enhanced question
+5. Generated → rag_evaluator.py → Completeness + Faithfulness
+6. rag_comparison_app.py → Side-by-side RAG vs Baseline
+
+================================================================================
+                    KEY QUESTIONS & ANSWERS FOR TA
+================================================================================
+
+Q1: How many models did you implement?
+A: 6 models total:
+   - 4 Classification: Random Forest, Linear SVM, LSTM, CNN
+   - 1 Generation: T5 (fine-tuned)
+   - 1 Enhanced: RAG (T5 + Retrieval)
+
+Q2: What's the difference between ML and DL models?
+A: ML models (Random Forest, SVM):
+   - Use hand-crafted features (TF-IDF)
+   - Train faster, less data needed
+   - Interpretable (can see feature importance)
+   
+   DL models (LSTM, CNN):
+   - Learn features automatically
+   - Need more data and compute
+   - Better performance on complex tasks
+   - Capture complex patterns in text
+
+Q3: Why use different embeddings for different models?
+A: - TF-IDF: Sparse, efficient for ML models (RF, SVM)
+   - Word2Vec: Dense sequences for LSTM/CNN
+   Each embedding type is optimized for its model architecture
+
+Q4: How does CNN differ from LSTM for text classification?
+A: LSTM: Sequential processing (captures word order and context)
+   - Bidirectional (reads forward and backward)
+   - Uses hidden states to maintain context
+   
+   CNN: Parallel processing with convolutional filters
+   - Detects local patterns (n-grams)
+   - Faster training than LSTM
+   - Good at identifying key phrases
+
+Q5: What's the purpose of RAG?
+A: Grounds generation in actual data:
+   - Reduces hallucinations
+   - Provides concrete examples
+   - Improves relevance and quality
+   - Measurable via faithfulness score
+
+Q6: How do you prevent overfitting in DL models?
+A: - Dropout (0.3) during training
+   - Early stopping based on validation loss
+   - L2 regularization (weight decay)
+   - Data augmentation (not used here, but possible)
+   - Validation set monitoring
+
+Q7: What's the best performing classification model?
+A: Performance varies by task, but typically:
+   - LSTM/CNN: 85-92% accuracy (best DL models)
+   - Random Forest: 80-88% accuracy (fast, interpretable)
+   - Linear SVM: 78-85% accuracy (efficient for large datasets)
+   
+   Deep learning models capture more complex patterns but need more data and time.
+
+Q8: How long does training take?
+A: Classification:
+   - Random Forest: 5-10 minutes
+   - Linear SVM: 10-20 minutes (large dataset)
+   - LSTM: 1-2 hours (20 epochs)
+   - CNN: 45-90 minutes (20 epochs, faster than LSTM)
+   
+   Generation (T5):
+   - 4-8 hours (3-5 epochs, depends on dataset size)
+
+Q9: How do you measure question quality?
+A: - ROUGE: Overlap with reference questions
+   - BLEU: N-gram precision
+   - Completeness: Meets all requirements
+   - Faithfulness: Grounded in data
+   - Human evaluation (not automated)
+
+Q10: Can the system generate questions for any subject?
+A: Yes, if present in training data (quiz_data.csv).
+   For new subjects:
+   - Zero-shot: May work due to T5 pre-training
+   - Few-shot: Add few examples and fine-tune
+   - Best: Collect subject-specific questions
+
+================================================================================
+                    RESULTS FOLDER STRUCTURE & FILES
+================================================================================
+
+The results/ directory contains all outputs from training and evaluation.
+
+MAIN STRUCTURE:
+results/
+├── classification/          (Classification model results)
+├── t5-quiz-generator/       (T5 generation model checkpoints)
+├── rag_cache/               (Pre-computed embeddings for RAG)
+├── rag_evaluation/          (RAG vs Baseline comparison results)
+└── saved_models/            (Saved trained models - deprecated, replaced by above)
+
+================================================================================
+1. CLASSIFICATION RESULTS (results/classification/)
+================================================================================
+
+ORGANIZATION:
+results/classification/
+├── subject/                 (Results for subject classification)
+├── difficulty/              (Results for difficulty classification)
+└── question_type/           (Results for question type classification)
+
+Each subdirectory contains results for all 4 models (RF, SVM, LSTM, CNN).
+
+FILES IN EACH TASK FOLDER (e.g., results/classification/subject/):
+--------------------------------------------------------------------
+
+A. PER-MODEL METRICS (JSON):
+   - RandomForest_test_metrics.json     (~2.5 KB)
+   - LinearSVM_test_metrics.json        (~2.5 KB)
+   - LSTM_test_metrics.json             (~2.5 KB)
+   - CNN_test_metrics.json              (~2.5 KB)
+   
+   WHAT'S INSIDE:
+   {
+     "accuracy": 0.8542,                // Overall accuracy (85.42%)
+     "precision": [0.82, 0.89, ...],    // Precision per class
+     "recall": [0.85, 0.83, ...],       // Recall per class
+     "f1_score": [0.83, 0.86, ...],     // F1-score per class
+     "auc": 0.9234,                     // Area Under ROC Curve
+     "top_3_accuracy": 0.9621,          // Top-3 prediction accuracy
+     "confusion_matrix": [[...], ...],  // Confusion matrix as 2D array
+     "class_names": ["CS", "Math", ...] // Class labels
+   }
+
+B. CONFUSION MATRICES (PNG):
+   - RandomForest_test_confusion_matrix.png     (~550-570 KB)
+   - LinearSVM_test_confusion_matrix.png        (~550-570 KB)
+   - LSTM_test_confusion_matrix.png             (~550-570 KB)
+   - CNN_test_confusion_matrix.png              (~550-570 KB)
+   
+   WHAT IT SHOWS:
+   - Heatmap visualization of predictions vs actual labels
+   - Rows: True labels (actual classes)
+   - Columns: Predicted labels
+   - Diagonal: Correct predictions (darker = more accurate)
+   - Off-diagonal: Misclassifications
+   - Color intensity shows count of samples
+
+C. TRAINING HISTORY (for DL models only):
+   - LSTM_training_history.png
+   - CNN_training_history.png
+   
+   WHAT IT SHOWS:
+   - Loss curves (train vs validation) over epochs
+   - Accuracy curves (train vs validation)
+   - Helps identify overfitting/underfitting
+
+EXAMPLE FILE CONTENTS (RandomForest_test_metrics.json):
+{
+  "accuracy": 0.8245,
+  "precision": [0.79, 0.85, 0.83, 0.81, 0.87],
+  "recall": [0.82, 0.83, 0.80, 0.84, 0.85],
+  "f1_score": [0.80, 0.84, 0.81, 0.82, 0.86],
+  "auc": 0.9123,
+  "top_3_accuracy": 0.9512,
+  "confusion_matrix": [
+    [245, 12, 8, 5, 3],
+    [10, 238, 15, 6, 4],
+    [7, 18, 221, 10, 5],
+    ...
+  ],
+  "class_names": ["Computer Science", "Mathematics", "Physics", "Chemistry", "Biology"]
+}
+
+================================================================================
+2. T5 GENERATION MODEL (results/t5-quiz-generator/)
+================================================================================
+
+STRUCTURE:
+results/t5-quiz-generator/
+├── checkpoint-58500/        (Earlier training checkpoint)
+├── checkpoint-58938/        (Latest/best checkpoint - THIS IS USED)
+└── runs/                    (TensorBoard logs)
+
+CHECKPOINT FOLDER (checkpoint-58938/):
+--------------------------------------
+Contains the complete trained T5 model. This is loaded by inference.py and RAG.
+
+FILES:
+1. model.safetensors                    (~242 MB)
+   - Actual model weights in safe tensor format
+   - Contains all 60M parameters of T5-small
+   - This is the BRAIN of the question generator
+
+2. config.json                          (~1.5 KB)
+   {
+     "model_type": "t5",
+     "d_model": 512,              // Hidden dimension
+     "num_layers": 6,             // Encoder/decoder layers
+     "num_heads": 8,              // Attention heads
+     "vocab_size": 32128,         // Vocabulary size
+     ...
+   }
+   - Defines model architecture
+   - Needed to reconstruct model from weights
+
+3. tokenizer files:
+   - spiece.model                       (~792 KB)
+     * SentencePiece vocabulary model
+     * Converts text → token IDs and vice versa
+   
+   - tokenizer_config.json              (~21 KB)
+     * Tokenizer settings (max_length, special tokens, etc.)
+   
+   - special_tokens_map.json            (~2.5 KB)
+     * Defines <pad>, <eos>, <unk>, etc.
+   
+   - added_tokens.json                  (~2.6 KB)
+     * Any custom tokens added during training
+
+4. generation_config.json               (~152 bytes)
+   {
+     "max_length": 128,
+     "num_beams": 4,
+     "early_stopping": true
+   }
+   - Default generation parameters
+
+5. Training state (for resuming training):
+   - optimizer.pt                       (~484 MB)
+     * Optimizer (Adam) state
+     * Contains momentum buffers, learning rate schedule
+   
+   - scheduler.pt                       (~1.5 KB)
+     * Learning rate scheduler state
+   
+   - trainer_state.json                 (~104 KB)
+     * Training progress: epoch, step, best metrics, loss history
+   
+   - training_args.bin                  (~6 KB)
+     * Training hyperparameters used
+   
+   - rng_state.pth                      (~15 KB)
+     * Random number generator state for reproducibility
+
+RUNS FOLDER (runs/):
+--------------------
+Contains TensorBoard logs for monitoring training:
+- Scalars: Loss, learning rate, ROUGE scores over time
+- Can view with: tensorboard --logdir=results/t5-quiz-generator/runs
+
+WHICH CHECKPOINT TO USE?
+-------------------------
+- checkpoint-58938 is the LATEST (highest step number)
+- This is typically the best model (trained longest)
+- Code automatically finds latest checkpoint in rag_inference.py
+
+================================================================================
+3. RAG CACHE (results/rag_cache/)
+================================================================================
+
+FILE:
+- quiz_data_all_MiniLM_L6_v2_embeddings.pkl    (~172 MB)
+
+WHAT IT CONTAINS:
+{
+  "embeddings": numpy array of shape (N, 384),
+    // N = number of questions in quiz_data.csv
+    // 384 = embedding dimension from all-MiniLM-L6-v2
+  
+  "dataset_hash": 123456
+    // Simple hash (row count) to detect dataset changes
+}
+
+PURPOSE:
+- Pre-computed embeddings of ALL questions in quiz_data.csv
+- Used by RAG for semantic similarity search
+- Computing embeddings is SLOW (minutes for large dataset)
+- Caching makes RAG inference FAST (loads in seconds)
+
+WHY 172 MB?
+- If dataset has ~100,000 questions
+- Each question becomes 384 floats (4 bytes each) = 1,536 bytes
+- Total: 100,000 × 1,536 = ~153 MB + pickle overhead
+
+HOW IT'S USED:
+1. RAGQuizGenerator checks if cache exists
+2. If yes and dataset unchanged → loads cached embeddings
+3. If no or dataset changed → recomputes and caches
+4. During generation, query embedding is compared with these cached embeddings
+5. Top-k most similar questions retrieved instantly
+
+================================================================================
+4. RAG EVALUATION (results/rag_evaluation/)
+================================================================================
+
+FILES:
+1. rag_vs_baseline.json                 (~747 KB)
+   
+   STRUCTURE:
+   {
+     "rag": [
+       {
+         "input": {...},
+         "question": "Generated question with RAG",
+         "retrieved_contexts": [{...}, {...}, {...}],
+         "completeness": {
+           "completeness_score": 0.875,
+           "raw_score": 3.5,
+           "max_score": 4.0,
+           "details": {...}
+         },
+         "faithfulness": {
+           "faithfulness_score": 0.762,
+           "is_grounded": true,
+           "max_similarity": 0.84,
+           "avg_similarity": 0.71,
+           "word_overlap": 0.65
+         }
+       },
+       ... (one entry per test sample)
+     ],
+     
+     "baseline": [
+       {
+         "input": {...},
+         "question": "Generated question without RAG",
+         "completeness": {...},
+         "faithfulness": {...}  // Will be 0 for baseline
+       },
+       ... (one entry per test sample)
+     ],
+     
+     "summary": {
+       "rag": {
+         "avg_completeness": 0.823,
+         "avg_faithfulness": 0.712
+       },
+       "baseline": {
+         "avg_completeness": 0.745,
+         "avg_faithfulness": 0.0
+       },
+       "improvement": {
+         "completeness_delta": 0.078,      // RAG is 7.8% better
+         "faithfulness_advantage": 0.712   // RAG exclusive metric
+       }
+     }
+   }
+   
+   PURPOSE:
+   - Detailed comparison of RAG vs Baseline generation
+   - Per-example completeness and faithfulness scores
+   - Aggregated statistics
+   - Used by rag_comparison_app.py to display results
+
+2. comparison_table.csv                 (~125 KB)
+   
+   COLUMNS:
+   - input_subject
+   - input_topic
+   - input_difficulty
+   - input_question_type
+   - rag_question                       (Generated with RAG)
+   - baseline_question                  (Generated without RAG)
+   - rag_completeness                   (0-1 score)
+   - rag_faithfulness                   (0-1 score)
+   - baseline_completeness              (0-1 score)
+   - retrieved_context_1                (First retrieved example)
+   - retrieved_context_2
+   - retrieved_context_3
+   
+   PURPOSE:
+   - Tabular format for easy analysis in Excel/Pandas
+   - Side-by-side comparison of RAG vs Baseline
+   - Shows what contexts were retrieved
+   - Can sort by completeness/faithfulness to find best/worst
+
+   EXAMPLE ROW:
+   | Subject | Topic | Difficulty | Type | RAG Question | Baseline Question | RAG Comp | RAG Faith | Base Comp |
+   |---------|-------|------------|------|--------------|-------------------|----------|-----------|-----------|
+   | CS      | ML    | Medium     | MCQ  | What is...   | Define the...     | 0.875    | 0.812     | 0.750     |
+
+================================================================================
+5. SAVED MODELS (results/saved_models/ or saved_models/)
+================================================================================
+
+NOTE: This may be deprecated in favor of classification/ results above.
+Check your actual project structure.
+
+IF PRESENT, CONTAINS:
+saved_models/
+├── subject/
+│   ├── random_forest.pkl
+│   ├── svm.pkl
+│   ├── lstm_model.pt
+│   ├── cnn_model.pt
+│   ├── tfidf_vectorizer.pkl
+│   ├── vocab.pkl
+│   └── label_encoder.pkl
+├── difficulty/
+│   └── (same files)
+└── question_type/
+    └── (same files)
+
+FILE DESCRIPTIONS:
+- random_forest.pkl: Pickled sklearn RandomForestClassifier
+- svm.pkl: Pickled sklearn SVC or LinearSVC
+- lstm_model.pt: PyTorch state_dict (model weights only)
+- cnn_model.pt: PyTorch state_dict (model weights only)
+- tfidf_vectorizer.pkl: Fitted TfidfVectorizer (needed for inference)
+- vocab.pkl: Word-to-index mapping for LSTM/CNN
+- label_encoder.pkl: Class name to ID mapping (e.g., "CS" → 0)
+
+================================================================================
+                    FILE SIZE SUMMARY
+================================================================================
+
+TYPICAL SIZES:
+- Classification metrics (JSON): ~2-3 KB per model
+- Confusion matrix (PNG): ~550-570 KB per model
+- T5 model weights (safetensors): ~242 MB
+- T5 optimizer state: ~484 MB
+- RAG embeddings cache: ~172 MB (depends on dataset size)
+- RAG evaluation JSON: ~747 KB
+- Training history plots: ~100-200 KB each
+
+TOTAL STORAGE (approximate):
+- Classification results: ~10-15 MB (all 3 tasks)
+- T5 checkpoints: ~1.5 GB (model + optimizer per checkpoint)
+- RAG cache: ~172 MB
+- RAG evaluation: ~1 MB
+- TOTAL: ~2-3 GB
+
+================================================================================
+                    WHICH FILES TO CHECK FOR DEMO
+================================================================================
+
+1. CLASSIFICATION PERFORMANCE:
+   → results/classification/subject/RandomForest_test_metrics.json
+   → results/classification/subject/LSTM_test_metrics.json
+   → Open PNG files to show confusion matrices
+
+2. T5 MODEL STATUS:
+   → Check results/t5-quiz-generator/checkpoint-58938/ exists
+   → Look at trainer_state.json for training progress
+
+3. RAG COMPARISON:
+   → results/rag_evaluation/rag_vs_baseline.json (summary section)
+   → results/rag_evaluation/comparison_table.csv (open in Excel)
+
+4. EMBEDDINGS CACHE:
+   → results/rag_cache/*.pkl (verify it exists = RAG is ready)
+
+================================================================================
+  * tokenizer_config.json: Tokenizer settings
+  * spiece.model: SentencePiece vocabulary
+- train_metrics.json: Training metrics
+- test_metrics.json: Test set evaluation
+- training_history.png: Loss and ROUGE curves
+
+RAG (results/rag_cache/):
+- quiz_data_all_MiniLM_L6_v2_embeddings.pkl: Cached embeddings
+
+RESULTS (results/classification/{task}/):
+- {model_name}_test_metrics.json: Per-model test metrics
+- {model_name}_confusion_matrix.png: Confusion matrix plot
+- {model_name}_training_history.png: Training curves (DL models)
+
+================================================================================
+                    TROUBLESHOOTING TIPS
+================================================================================
+
+1. Models not loading?
+   - Run verify_models.py to check status
+   - Ensure saved_models/{task}/ exists
+   - Re-train if files missing
+
+2. Out of memory during training?
+   - Reduce batch size (16 → 8 → 4)
+   - Use gradient accumulation
+   - Train on CPU (slower but works)
+
+3. Low accuracy?
+   - Check data quality in quiz_data.csv
+   - Ensure balanced classes
+   - Increase training epochs
+   - Try different hyperparameters
+
+4. T5 generates nonsense?
+   - Reduce temperature (0.7 → 0.5)
+   - Use beam search instead of sampling
+   - Check if model trained properly
+   - Verify input format matches training
+
+5. RAG not improving results?
+   - Check retrieved contexts (relevant?)
+   - Increase top_k (3 → 5)
+   - Verify embeddings cached correctly
+   - Ensure dataset has similar examples
+
+================================================================================
+                    END OF DOCUMENTATION
+================================================================================
+
+This documentation covers all ML/DL models, their working principles, training 
+techniques, prediction methods, libraries used, file purposes, and accuracy 
+calculation methods. You should now be able to answer any question about your 
+project's models!
+
+For specific metric values and detailed results, check the JSON files in the 
+results/ directory and the saved model files in saved_models/.

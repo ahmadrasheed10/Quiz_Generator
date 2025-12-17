@@ -129,7 +129,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
+# Keep track of what's happening between page reloads
 SUBJECT_OPTIONS = [
     "Applied Physics",
     "Automata",
@@ -166,16 +166,15 @@ if 'generator' not in st.session_state:
 if 'generated_questions' not in st.session_state:
     st.session_state.generated_questions = None
 
+# Find the most recent trained model to use
 def find_latest_checkpoint(base_path):
     """Find the latest checkpoint folder in the model directory"""
     if not os.path.exists(base_path):
         return None
     
-    # Check if base_path itself contains model files
     if os.path.exists(os.path.join(base_path, "config.json")):
         return base_path
     
-    # Look for checkpoint folders
     checkpoints = []
     for item in os.listdir(base_path):
         checkpoint_path = os.path.join(base_path, item)
@@ -189,12 +188,13 @@ def find_latest_checkpoint(base_path):
                     continue
     
     if checkpoints:
-        # Return the latest checkpoint (highest number)
+        # Return the latest checkpoint (highest number
         checkpoints.sort(key=lambda x: x[0], reverse=True)
         return checkpoints[0][1]
     
     return None
 
+# Load model once and keep it in memory (faster for multiple generations)
 @st.cache_resource
 def load_model(model_path):
     """Load the quiz generator model (cached)"""
@@ -247,6 +247,7 @@ def _safe_multicell(pdf, text, line_height=8):
         if buffer:
             pdf.cell(0, line_height, buffer, ln=True)
 
+# Create a PDF file from the generated questions for download
 def create_pdf_from_questions(questions, metadata):
     """Build a simple PDF for the generated quiz questions."""
     pdf = FPDF()
@@ -288,12 +289,13 @@ def create_pdf_from_questions(questions, metadata):
     buffer.seek(0)
     return buffer
 
+# Main app starts here
 def main():
-    # Header
+    # Show the page title
     st.markdown('<h1 class="main-header">📝 Quiz Generator</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">AI-Powered Quiz Question Generation</p>', unsafe_allow_html=True)
     
-    # Sidebar
+    # Left sidebar for settings and model loading
     with st.sidebar:
         st.header("⚙️ Configuration")
         
@@ -373,7 +375,7 @@ def main():
             - For faster generation, use GPU if available
             """)
     else:
-        # Input form
+        # Main form where users input what kind of question they want
         st.header(" Generate Quiz Questions")
         
         col1, col2 = st.columns(2)
@@ -399,7 +401,7 @@ def main():
             )
         
         with col2:
-            # Determine available question types based on subject
+            # Only show programming option for coding subjects
             available_types = ["MCQ", "Short Answer", "Long Answer"]
             if subject in CODING_SUBJECTS:
                 available_types.append("programming")
@@ -433,14 +435,16 @@ def main():
                 type="primary"
             )
         
-        # Generate questions
+        # When user clicks generate, create the questions
         if generate_button:
             if not topic.strip():
                 st.error(" Please enter a topic!")
             else:
+                # Try to generate, show error if something goes wrong
                 try:
                     with st.spinner(f"🤖 Generating {num_questions} question(s)... This may take a while on CPU."):
                         timestamp = datetime.now()
+                        # Save metadata about this generation
                         metadata = {
                             "subject": subject,
                             "topic": topic,

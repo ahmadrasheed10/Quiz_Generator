@@ -90,6 +90,7 @@ def plot_training_history(history: dict, output_dir: str):
     # print confirmation message
     print(f"Training plots saved to {output_dir}/training_history.png")
 
+# This class handles teaching the T5 model to make quiz questions
 class QuizGeneratorTrainer:
     """trainer class for quiz generator model"""
     
@@ -99,12 +100,12 @@ class QuizGeneratorTrainer:
         # store data configuration
         self.data_config = data_config
         
-        # print loading tokenizer message
+        # Load the tools that convert text to numbers and vice versa
         print(f"Loading tokenizer: {config.model_name}")
         # load pretrained t5 tokenizer
         self.tokenizer = T5Tokenizer.from_pretrained(config.model_name)
         
-        # print loading model message
+        # Load the pretrained T5 model from Google
         print(f"Loading model: {config.model_name}")
         # load pretrained t5 model
         self.model = T5ForConditionalGeneration.from_pretrained(config.model_name)
@@ -112,7 +113,7 @@ class QuizGeneratorTrainer:
         # initialize quiz data loader
         self.data_loader = QuizDataLoader(self.tokenizer, config, data_config)
         
-        # initialize training history dictionary
+        # Set up empty containers to track training progress
         self.training_history = {
             'loss': [],
             'eval_loss': [],
@@ -147,12 +148,12 @@ class QuizGeneratorTrainer:
             # download punkt if missing
             nltk.download('punkt')
         
-        # load rouge metric function
+        # Load ROUGE - tool that checks how good generated text is
         rouge = eval_load("rouge")
         # unpack predictions and labels
         predictions, labels = eval_pred
         
-        # decode model predictions to text
+        # Turn number sequences back into readable text
         decoded_preds = self.tokenizer.batch_decode(predictions, skip_special_tokens=True)
         
         # ignore pad tokens in labels
@@ -165,7 +166,7 @@ class QuizGeneratorTrainer:
         # format labels for rouge score
         decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
         
-        # calculate rouge scores now
+        # Measure how similar generated questions are to real ones
         result = rouge.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
         
         # convert scores to percentage
@@ -198,9 +199,7 @@ class QuizGeneratorTrainer:
     
     def train(self):
         """train the model"""
-        # print dataset preparation message
-        print("Loading and preprocessing datasets...")
-        # prepare datasets for training
+        # load and prepare all our quiz questions for training
         datasets = self.data_loader.prepare_datasets(
             self.data_config.dataset_path,
             seed=self.config.seed
@@ -249,7 +248,7 @@ class QuizGeneratorTrainer:
             compute_metrics=self.compute_metrics,
         )
         
-        # print training start message
+        # Actually start teaching the model now
         print("Starting training...")
         # execute model training process
         train_result = trainer.train()

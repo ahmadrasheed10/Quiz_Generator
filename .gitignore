@@ -15,6 +15,7 @@ ENV/
 
 # Models and Results (large files)
 saved_models/
+saved models/
 results/
 rag_cache/
 

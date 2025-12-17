@@ -14,6 +14,8 @@ from sentence_transformers import SentenceTransformer
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 
+# This class makes quiz questions by first finding similar existing questions
+# Then uses those as examples for the T5 model - makes better questions!
 class RAGQuizGenerator:
     """Quiz question generator that augments T5 with retrieved context."""
 
@@ -33,25 +35,26 @@ class RAGQuizGenerator:
         # Find latest checkpoint if model_path is a directory
         actual_model_path = self._find_latest_checkpoint(model_path)
 
-        # Load T5 model + tokenizer
+        # Load our main T5 model that generates questions
         self.tokenizer = T5Tokenizer.from_pretrained(actual_model_path)
         self.model = T5ForConditionalGeneration.from_pretrained(actual_model_path)
         self.model.to(self.device)
         self.model.eval()
 
-        # Load retrieval model
+        # Load the model that finds similar questions
         self.retrieval_model = SentenceTransformer(retrieval_model)
         if self.device == "cuda":
             self.retrieval_model = self.retrieval_model.to(self.device)
 
-        # Load dataset and pre-compute embeddings (with caching)
+        # Load all quiz questions and turn them into numbers (embeddings)
+        # We save these to make searching faster next time
         self.dataset = self._load_dataset(dataset_path)
         self.dataset_embeddings = self._load_or_create_embeddings(dataset_path, retrieval_model)
 
         self.top_k = top_k
 
     def _find_latest_checkpoint(self, base_path: str) -> str:
-        """Find the latest checkpoint folder in the model directory"""
+        """Find most recent saved model to use"""
         if not os.path.exists(base_path):
             return base_path
         
@@ -98,11 +101,10 @@ class RAGQuizGenerator:
         cache_dir.mkdir(parents=True, exist_ok=True)
         return str(cache_dir / f"{dataset_name}_{model_name}_embeddings.pkl")
     
-    def _load_or_create_embeddings(self, dataset_path: str, retrieval_model: str) -> np.ndarray:
-        """Load embeddings from cache or create and cache them."""
+        # Either load saved embeddings or create new ones
         cache_path = self._get_embeddings_cache_path(dataset_path, retrieval_model)
         
-        # Check if cache exists and is valid
+        # Try to load from cache first to save time
         if os.path.exists(cache_path):
             try:
                 with open(cache_path, "rb") as f:
@@ -142,13 +144,8 @@ class RAGQuizGenerator:
         
         return embeddings
 
-    def retrieve_relevant_context(
-        self,
-        subject: str,
-        topic: str,
-        difficulty: str,
-        question_type: str,
-    ) -> List[Dict]:
+        # Find questions similar to what we want to generate
+        # This gives our model good examples to learn from
         query = f"{subject} {topic} {difficulty} {question_type}"
         query_embedding = self.retrieval_model.encode(
             [query],
@@ -173,6 +170,7 @@ class RAGQuizGenerator:
             filtered_similarities = similarities.copy()
             filtered_similarities[~mask] = -1
 
+        # Pick the top most similar questions as examples
         top_indices = np.argsort(filtered_similarities)[-self.top_k :][::-1]
         top_indices = top_indices[filtered_similarities[top_indices] > -1]
 
@@ -191,14 +189,7 @@ class RAGQuizGenerator:
             )
         return retrieved
 
-    def _build_prompt_with_context(
-        self,
-        subject: str,
-        topic: str,
-        difficulty: str,
-        question_type: str,
-        retrieved_contexts: List[Dict],
-    ) -> str:
+        # Build a prompt with examples so the model knows what we want
         context_block = "\n".join(
             [
                 f"Example {i+1}: {ctx['question']}"
@@ -262,6 +253,7 @@ class RAGQuizGenerator:
         question_type: str = "MCQ",
         **kwargs,
     ) -> Tuple[str, List[Dict]]:
+        """Generate using RAG - first find examples, then generate"""
         contexts = self.retrieve_relevant_context(
             subject, topic, difficulty, question_type
         )
@@ -279,6 +271,7 @@ class RAGQuizGenerator:
         question_type: str = "MCQ",
         **kwargs,
     ) -> str:
+        """Generate without RAG - no examples, just raw generation"""
         prompt = (
             f"Generate {difficulty} {question_type} question for {subject} topic: {topic}"
         )

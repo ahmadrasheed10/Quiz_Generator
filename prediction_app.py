@@ -430,9 +430,19 @@ if predict_button and question_text.strip():
     
     # Get consensus
     predicted_classes = [pred['class'] for pred in predictions.values()]
-    most_common = max(set(predicted_classes), key=predicted_classes.count)
-    avg_confidence = np.mean([pred['confidence'] for pred in predictions.values() 
-                              if pred['class'] == most_common])
+    
+    # Check if all models predicted different courses
+    unique_classes = set(predicted_classes)
+    if len(unique_classes) == len(predictions):
+        # All models have different predictions - pick the one with highest confidence
+        best_model = max(predictions.items(), key=lambda x: x[1]['confidence'])
+        most_common = best_model[1]['class']
+        avg_confidence = best_model[1]['confidence']
+    else:
+        # Use majority voting when there's overlap
+        most_common = max(set(predicted_classes), key=predicted_classes.count)
+        avg_confidence = np.mean([pred['confidence'] for pred in predictions.values() 
+                                  if pred['class'] == most_common])
     
     # Display consensus
     st.markdown(f"""
