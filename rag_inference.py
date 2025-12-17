@@ -101,7 +101,8 @@ class RAGQuizGenerator:
         cache_dir.mkdir(parents=True, exist_ok=True)
         return str(cache_dir / f"{dataset_name}_{model_name}_embeddings.pkl")
     
-        # Either load saved embeddings or create new ones
+    def _load_or_create_embeddings(self, dataset_path: str, retrieval_model: str) -> np.ndarray:
+        """Either load saved embeddings or create new ones."""
         cache_path = self._get_embeddings_cache_path(dataset_path, retrieval_model)
         
         # Try to load from cache first to save time
@@ -144,8 +145,14 @@ class RAGQuizGenerator:
         
         return embeddings
 
-        # Find questions similar to what we want to generate
-        # This gives our model good examples to learn from
+    def retrieve_relevant_context(
+        self,
+        subject: str,
+        topic: str,
+        difficulty: str,
+        question_type: str,
+    ) -> List[Dict]:
+        """Find questions similar to what we want to generate."""
         query = f"{subject} {topic} {difficulty} {question_type}"
         query_embedding = self.retrieval_model.encode(
             [query],
@@ -189,7 +196,15 @@ class RAGQuizGenerator:
             )
         return retrieved
 
-        # Build a prompt with examples so the model knows what we want
+    def _build_prompt_with_context(
+        self,
+        subject: str,
+        topic: str,
+        difficulty: str,
+        question_type: str,
+        retrieved_contexts: List[Dict],
+    ) -> str:
+        """Build a prompt with examples so the model knows what we want."""
         context_block = "\n".join(
             [
                 f"Example {i+1}: {ctx['question']}"
