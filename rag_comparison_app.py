@@ -1,7 +1,7 @@
 """
 Streamlit dashboard to compare Baseline vs RAG models.
 """
-import streamlit as st
+
 
 from rag_evaluator import RAGEvaluator
 from rag_inference import RAGQuizGenerator
