@@ -7,7 +7,7 @@
 
 A comprehensive AI system that combines **Generative AI** (T5 Transformer), **Deep Learning** (LSTM, CNN), and **Machine Learning** (Random Forest, SVM) to generate, classify, and evaluate university-level quiz questions. Features 4 specialized Streamlit frontends for different use cases.
 
----
+
 
 ## 📋 Table of Contents
 
