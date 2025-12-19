@@ -1,8 +1,7 @@
 """
 RAG-based Quiz Generator with Retrieval-Augmented Generation
 """
-import os
-import pickle
+
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
