@@ -1,7 +1,7 @@
 """
 Simple script to run the Streamlit app
 """
-
+import subprocess
 import sys
 
 if __name__ == "__main__":
